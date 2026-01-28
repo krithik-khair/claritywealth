@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Personal Financial Statement</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            font-family: "Segoe UI", Roboto, Arial, sans-serif;
+            background: #eef2f6;
+            margin: 0;
+            padding: 30px;
+            color: #1f2937;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+
+        .dashboard {
+            max-width: 1100px;
+            margin: auto;
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .group label {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .group input,
+        .group select {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+        }
+
+        .summary {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+            background: #f8fafc;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .insight {
+            background: #f1f5f9;
+            border-left: 5px solid #2563eb;
+            padding: 14px 18px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 15.5px;
+            line-height: 1.5;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 420px;
+        }
+
+        canvas {
+            max-height: 420px;
+        }
+
+        .actions {
+            text-align: right;
+            margin-top: 15px;
+        }
+
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            font-size: 15px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #1e40af;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Personal Financial Statement</h1>
+
+<div class="dashboard">
+
+    <div class="controls">
+        <div class="group">
+            <label>Currency</label>
+            <select id="currency" onchange="updateChart()">
+                <option value="$">USD ($)</option>
+                <option value="€">EUR (€)</option>
+                <option value="₹">INR (₹)</option>
+                <option value="£">GBP (£)</option>
+            </select>
+        </div>
+
+        <div class="group">
+            <label>Assets</label>
+            <input type="number" id="assets" value="50000" oninput="updateChart()">
+        </div>
+
+        <div class="group">
+            <label>Liabilities</label>
+            <input type="number" id="liabilities" value="20000" oninput="updateChart()">
+        </div>
+
+        <div class="group">
+            <label>Monthly Income</label>
+            <input type="number" id="income" value="5000" oninput="updateChart()">
+        </div>
+
+        <div class="group">
+            <label>Monthly Expenses</label>
+            <input type="number" id="expenses" value="3000" oninput="updateChart()">
+        </div>
+    </div>
+
+    <div class="summary" id="summaryText"></div>
+
+    <!-- NEW: Financial Health Insight (NOT part of PNG) -->
+    <div class="insight" id="insightText"></div>
+
+    <div class="chart-container">
+        <canvas id="financeChart"></canvas>
+    </div>
+
+    <div class="actions">
+        <button class="btn" onclick="exportPNG()">Export Chart as PNG</button>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    const ctx = document.getElementById('financeChart').getContext('2d');
+    let currentCurrency = "$";
+
+    const financeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Assets', 'Liabilities', 'Net Worth', 'Income', 'Expenses', 'Cash Flow'],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    '#22c55e',
+                    '#ef4444',
+                    '#16a34a',
+                    '#3b82f6',
+                    '#f59e0b',
+                    '#8b5cf6'
+                ]
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    function updateChart() {
+        const assets = +assetsInput.value || 0;
+        const liabilities = +liabilitiesInput.value || 0;
+        const income = +incomeInput.value || 0;
+        const expenses = +expensesInput.value || 0;
+
+        currentCurrency = currency.value;
+
+        const netWorth = assets - liabilities;
+        const cashFlow = income - expenses;
+        const debtRatio = assets > 0 ? liabilities / assets : 1;
+
+        financeChart.data.datasets[0].data = [
+            assets, liabilities, netWorth, income, expenses, cashFlow
+        ];
+        financeChart.update();
+
+        summaryText.innerHTML =
+            `<span>Net Worth: ${currentCurrency}${netWorth.toLocaleString()}</span>
+             <span>Monthly Cash Flow: ${currentCurrency}${cashFlow.toLocaleString()}</span>`;
+
+        generateInsight(netWorth, cashFlow, debtRatio);
+    }
+
+    function generateInsight(netWorth, cashFlow, debtRatio) {
+        let message = "";
+
+        if (netWorth > 0 && cashFlow > 0 && debtRatio < 0.5) {
+            message = `
+            <strong>Financial Status: Strong</strong><br>
+            Your financial position appears healthy. Assets exceed liabilities, and your cash flow is positive.
+            This indicates effective financial management and a solid foundation for long-term growth.
+            `;
+        } 
+        else if (netWorth >= 0 && cashFlow >= 0) {
+            message = `
+            <strong>Financial Status: Stable, With Scope for Improvement</strong><br>
+            Your finances are balanced, but there is an opportunity to strengthen your position.
+            Improving cash flow efficiency or reducing liabilities could further enhance stability.
+            `;
+        } 
+        else {
+            message = `
+            <strong>Financial Status: Attention Required</strong><br>
+            Current indicators suggest financial stress. Negative cash flow or high liabilities may impact
+            long-term stability. Reviewing expenses, debt obligations, and income sources is recommended.
+            `;
+        }
+
+        insightText.innerHTML = message;
+    }
+
+    function exportPNG() {
+        const link = document.createElement('a');
+        link.download = 'financial-statement.png';
+        link.href = financeChart.toBase64Image();
+        link.click();
+    }
+
+    // Shortcuts
+    const assetsInput = document.getElementById('assets');
+    const liabilitiesInput = document.getElementById('liabilities');
+    const incomeInput = document.getElementById('income');
+    const expensesInput = document.getElementById('expenses');
+    const currency = document.getElementById('currency');
+    const summaryText = document.getElementById('summaryText');
+    const insightText = document.getElementById('insightText');
+
+    updateChart();
+</script>
+
+</body>
+</html>
